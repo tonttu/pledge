@@ -11,9 +11,13 @@ Pledge::ThreadPoolExecutor pool{ 8 };
 
 std::string s_prev;
 
-void check(bool v, const char* test, const char* file, int line)
+template <typename T>
+void check(T v, const char* test, const char* file, int line)
 {
-  s_prev = test;
+  std::stringstream ss;
+  ss << v;
+  s_prev = ss.str();
+
   if (v)
     return;
   fprintf(stderr, "%s:%d: check failed: %s\n", file, line, test);
@@ -56,14 +60,15 @@ void checkPrev(const E& expected, const char* expectedStr, const char* file, int
     return;
 
   fprintf(stderr,
-          "%s:%d: check (%s) with value %s not executed\n",
+          "%s:%d: check (%s) with value %s not executed (prev: %s)\n",
           file,
           line,
           expectedStr,
-          e.str().c_str());
+          e.str().c_str(),
+          s_prev.c_str());
 }
 
-#define CHECK(check) check((check), #check, __FILE__, __LINE__)
+#define CHECK(test) check((test), #test, __FILE__, __LINE__)
 #define CHECK_EQUAL(expected, actual)                                                              \
   checkEqual((expected), (actual), #expected, #actual, __FILE__, __LINE__)
 #define CHECK_PREV(expected) checkPrev((expected), #expected, __FILE__, __LINE__)
@@ -106,6 +111,14 @@ int main()
     CHECK_PREV(47);
   }
 
+  {
+    Promise promise;
+    auto future = promise.future(&pool).then([] { CHECK(true); });
+    promise.setValue();
+    future.wait();
+    CHECK_PREV(true);
+  }
+
   ManualExecutor main;
   {
     Promise<int> promise;
@@ -123,6 +136,58 @@ int main()
     CHECK_EQUAL(0, b);
     CHECK_EQUAL(1, main.run());
     CHECK_EQUAL(49, b);
+  }
+
+  {
+    Promise<int> promise;
+    promise.future().error([](const std::exception& error) {
+      CHECK_EQUAL("failure", error.what());
+      return 0;
+    });
+    promise.setError(std::runtime_error("failure"));
+    CHECK_PREV("failure");
+  }
+
+  {
+    Promise<int> promise;
+    auto f = promise.future()
+               .then([](int) {
+                 // Not called
+                 CHECK(false);
+                 return 123;
+               })
+               .error([](const std::runtime_error&) {
+                 // Not called
+                 CHECK(false);
+                 return 12345;
+               })
+               .error([](const std::logic_error& error) {
+                 CHECK_EQUAL("nope", error.what());
+                 return 1234;
+               })
+               .then([](int v) { return v + 1; });
+    promise.setError(std::invalid_argument("nope"));
+    CHECK_EQUAL(1235, f.wait());
+  }
+
+  {
+    Promise<int> promise;
+    promise.set([]() -> int { throw "Nah"; });
+    promise.future().error([](const char* msg) {
+      CHECK_EQUAL("Nah", std::string(msg));
+      return 42;
+    });
+    CHECK_PREV("Nah");
+  }
+
+  {
+    Promise<int> promise;
+    promise.future().then([](int v) { throw v + 1; }).error([](int v) {
+      CHECK_EQUAL(100, v);
+      return 0;
+    });
+    promise.setValue(99);
+    CHECK_PREV(100);
   }
 
   return 0;
