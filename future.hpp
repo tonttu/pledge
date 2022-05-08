@@ -14,6 +14,15 @@ namespace Pledge {
 struct void_type
 {};
 
+template <typename T>
+class FutureBase;
+
+template <typename T = void>
+class Future;
+
+template <>
+class Future<void>;
+
 template <typename T = void_type>
 class FutureData
 {
@@ -56,29 +65,25 @@ public:
   std::function<void()> m_callback;
 };
 
-template <typename T>
-struct FutureDataTypeT
-{
-  using Type = FutureData<T>;
-};
-template <>
-struct FutureDataTypeT<void>
-{
-  using Type = FutureData<void_type>;
-};
-
-template <typename T>
-using FutureDataType = typename FutureDataTypeT<T>::Type;
-
 template <typename From, typename To, typename Func>
 inline void handleThenImpl(std::shared_ptr<FutureData<From>>& from,
                            std::shared_ptr<FutureData<To>>& to,
                            Func&& f)
 {
-  // TODO: Support future return values
   if (from->m_value.index() == 1) {
     try {
-      if constexpr (std::is_same_v<From, void_type>) {
+      using FuncRet = typename Type<Func>::Ret;
+      if constexpr (is_specialization_v<FuncRet, Future>) {
+        if constexpr (std::is_same_v<From, void_type>) {
+          f()
+            .then([to](To v) { to->setValue(std::move(v)); })
+            .error([to](std::exception_ptr error) { to->setError(std::move(error)); });
+        } else {
+          f(std::move(std::get<1>(from->m_value)))
+            .then([to](To v) { to->setValue(std::move(v)); })
+            .error([to](std::exception_ptr error) { to->setError(std::move(error)); });
+        }
+      } else if constexpr (std::is_same_v<From, void_type>) {
         if constexpr (std::is_same_v<To, void_type>) {
           f();
           to->setValue(void_type{});
@@ -107,32 +112,61 @@ inline void handleErrorImpl(std::shared_ptr<FutureData<T>>& from,
                             std::shared_ptr<FutureData<T>>& to,
                             Func&& f)
 {
-  // TODO: Support future return values
   if (from->m_value.index() == 1) {
     to->setValue(std::move(std::get<1>(from->m_value)));
   } else {
     assert(from->m_value.index() == 2);
-    try {
-      std::rethrow_exception(std::get<2>(from->m_value));
-    } catch (E& e) {
+    using FuncRet = typename Type<Func>::Ret;
+
+    if constexpr (std::is_same_v<E, std::exception_ptr>) {
       try {
-        if constexpr (std::is_same_v<T, void_type>) {
-          f(e);
+        if constexpr (is_specialization_v<FuncRet, Future>) {
+          f(std::move(std::get<2>(from->m_value)))
+            .then([to](T v) { to->setValue(std::move(v)); })
+            .error([to](std::exception_ptr error) { to->setError(std::move(error)); });
+        } else if constexpr (std::is_same_v<T, void_type>) {
+          f(std::move(std::get<2>(from->m_value)));
           to->setValue(void_type{});
         } else {
-          to->setValue(f(e));
+          to->setValue(f(std::move(std::get<2>(from->m_value))));
         }
       } catch (...) {
         to->setError(std::current_exception());
       }
-    } catch (...) {
-      to->setError(std::get<2>(from->m_value));
+    } else {
+      using Catch = typename CatchType<E>::Type;
+      try {
+        std::rethrow_exception(std::get<2>(from->m_value));
+      } catch (Catch e) {
+        try {
+          if constexpr (is_specialization_v<FuncRet, Future>) {
+            f(e)
+              .then([to](T v) { to->setValue(std::move(v)); })
+              .error([to](std::exception_ptr error) { to->setError(std::move(error)); });
+          } else if constexpr (std::is_same_v<T, void_type>) {
+            f(e);
+            to->setValue(void_type{});
+          } else {
+            to->setValue(f(e));
+          }
+        } catch (...) {
+          to->setError(std::current_exception());
+        }
+      } catch (...) {
+        to->setError(std::get<2>(from->m_value));
+      }
     }
   }
 }
 
+// Called when from has ready value or an error, and now we are expected to
+// call the continuation function f in the 'from' executor. The result of f
+// is then assigned to 'to'. If 'f' returns a future instead, a new then/error
+// continuations are added to the future which then assign the value to 'to'.
 template <typename From, typename To, typename Func>
-inline void handleThen(From& from, To& to, Func&& f)
+inline void handleThen(std::shared_ptr<FutureData<From>>& from,
+                       std::shared_ptr<FutureData<To>>& to,
+                       Func&& f)
 {
   if (from->m_executor) {
     from->m_executor->add([from, to, f]() mutable {
@@ -157,16 +191,12 @@ inline void handleError(D& from, D& to, Func&& f)
   }
 }
 
-template <typename T = void>
-class Future;
-
-template <>
-class Future<void>;
-
 template <typename T>
 class FutureBase
 {
 public:
+  using ValueType = T;
+
   FutureBase(std::shared_ptr<FutureDataType<T>> data)
     : m_data(std::move(data))
   {}
@@ -223,6 +253,7 @@ public:
     if (idx == 0) {
       std::weak_ptr<FutureDataType<T>> selfWeak(Base::m_data);
       auto next = std::make_shared<FutureDataType<T>>();
+      next->m_executor = Base::m_data->m_executor;
       Base::m_data->m_callback = [selfWeak, next, f]() mutable {
         std::shared_ptr<FutureDataType<T>> self(selfWeak);
         handleError<E>(self, next, std::forward<F>(f));
@@ -231,13 +262,14 @@ public:
     } else {
       g.unlock();
       auto next = std::make_shared<FutureDataType<T>>();
+      next->m_executor = Base::m_data->m_executor;
       handleError<E>(Base::m_data, next, std::forward<F>(f));
       return next;
     }
   }
 
   template <typename F>
-  auto then(F&& f) -> Future<typename Type<F>::Ret>
+  auto then(F&& f) -> FutureType<typename Type<F>::Ret>
   {
     using Ret = typename Type<F>::Ret;
 
@@ -246,6 +278,7 @@ public:
     if (idx == 0) {
       std::weak_ptr<FutureDataType<T>> selfWeak(Base::m_data);
       auto next = std::make_shared<FutureDataType<Ret>>();
+      next->m_executor = Base::m_data->m_executor;
       Base::m_data->m_callback = [selfWeak, next, f]() mutable {
         std::shared_ptr<FutureDataType<T>> self(selfWeak);
         handleThen(self, next, std::forward<F>(f));
@@ -257,6 +290,7 @@ public:
       // depending on what f does.
       g.unlock();
       auto next = std::make_shared<FutureDataType<Ret>>();
+      next->m_executor = Base::m_data->m_executor;
       handleThen(Base::m_data, next, std::forward<F>(f));
       return next;
     }

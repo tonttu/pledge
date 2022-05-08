@@ -112,7 +112,7 @@ int main()
   }
 
   {
-    Promise promise;
+    Promise<> promise;
     auto future = promise.future(&pool).then([] { CHECK(true); });
     promise.setValue();
     future.wait();
@@ -188,6 +188,37 @@ int main()
     });
     promise.setValue(99);
     CHECK_PREV(100);
+  }
+
+  static_assert(is_specialization_v<Future<int>, Future>);
+  static_assert(std::is_same_v<FutureType<int>, Future<int>>);
+  static_assert(std::is_same_v<FutureType<void>, Future<>>);
+  static_assert(std::is_same_v<FutureType<Future<int>>, Future<int>>);
+  static_assert(std::is_same_v<FutureType<Future<>>, Future<>>);
+
+  {
+    Promise<int> promise{ 100 };
+    int v = promise.future(&pool)
+              .then([](int v) {
+                Promise<int> promise2;
+                auto future2 = promise2.future(&pool).then([](int v) { return v + 1; });
+                promise2.setValue(v + 1);
+                return future2;
+              })
+              .wait();
+    CHECK_EQUAL(102, v);
+  }
+
+  {
+    Promise<int> promise;
+    auto future = promise.future().error([](const char* error) {
+      Promise<int> promise2;
+      auto future2 = promise2.future(&pool).then([](int v) { return v + 1; });
+      promise2.setValue(std::stoi(error));
+      return future2;
+    });
+    promise.set([]() -> int { throw "102"; });
+    CHECK_EQUAL(103, future.wait());
   }
 
   return 0;
