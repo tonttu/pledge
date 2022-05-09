@@ -3,9 +3,9 @@
 #include <sstream>
 #include <thread>
 
-#include "manual_executor.hpp"
-#include "promise.hpp"
-#include "thread_pool_executor.hpp"
+#include "ManualExecutor.hpp"
+#include "Promise.hpp"
+#include "ThreadPoolExecutor.hpp"
 
 Pledge::ThreadPoolExecutor pool{ 8 };
 

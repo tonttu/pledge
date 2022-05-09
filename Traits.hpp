@@ -65,39 +65,4 @@ struct CatchType<T, typename std::enable_if<std::is_pointer_v<T>>::type>
   using Type = T;
 };
 
-
-template <typename T, typename S = void>
-struct FutureTypeT
-{
-  using FutureValueType = T;
-  using DataValueType = T;
-};
-
-template <typename T>
-struct FutureTypeT<T, typename std::enable_if<is_specialization_v<T, Future>>::type>
-{
-  using FutureValueType = typename T::ValueType;
-  using DataValueType = typename T::ValueType;
-};
-
-template <>
-struct FutureTypeT<Future<>>
-{
-  using FutureValueType = void;
-  using DataValueType = void_type;
-};
-
-template <>
-struct FutureTypeT<void>
-{
-  using FutureValueType = void;
-  using DataValueType = void_type;
-};
-
-template <typename T>
-using FutureDataType = FutureData<typename FutureTypeT<T>::DataValueType>;
-
-template <typename T>
-using FutureType = Future<typename FutureTypeT<T>::FutureValueType>;
-
 }
