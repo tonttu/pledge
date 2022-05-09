@@ -86,10 +86,10 @@ public:
     Error = 2
   };
 
-  std::mutex m_mutex;
-  std::variant<std::monostate, T, std::exception_ptr> m_value;
-  Executor* m_executor = nullptr;
-  std::function<void()> m_callback;
+  std::mutex mutex;
+  std::variant<std::monostate, T, std::exception_ptr> value;
+  Executor* executor = nullptr;
+  std::function<void()> callback;
 };
 
 }

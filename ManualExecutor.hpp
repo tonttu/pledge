@@ -7,6 +7,13 @@
 
 namespace Pledge {
 
+// An executor that adds tasks to a queue that needs to be manually executed by
+// calling run().
+//
+// Multithreaded applications could have these in various threads and different
+// thread event loops or main loops could call run() on them periodically, so
+// you could easily write continuations that jump between relevant threads in
+// the application.
 class ManualExecutor : public Executor
 {
 public:

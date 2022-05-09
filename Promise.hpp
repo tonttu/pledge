@@ -26,7 +26,7 @@ public:
   template <typename F>
   void set(F&& f);
 
-  // private:
+private:
   std::shared_ptr<FutureDataType<T>> m_data;
 };
 
@@ -47,7 +47,7 @@ public:
   template <typename E>
   void setError(E&& e);
 
-  // private:
+private:
   std::shared_ptr<FutureData<void_type>> m_data;
 };
 

@@ -107,7 +107,7 @@ int main()
     Promise<int> promise;
     auto future = promise.future(&pool).then([](int v) { CHECK_EQUAL(47, v); });
     promise.setValue(47);
-    future.get();
+    std::move(future).get();
     CHECK_PREV(47);
   }
 
@@ -115,8 +115,16 @@ int main()
     Promise<> promise;
     auto future = promise.future(&pool).then([] { CHECK(true); });
     promise.setValue();
-    future.get();
+    std::move(future).get();
     CHECK_PREV(true);
+  }
+
+  {
+    Promise<> promise;
+    auto future =
+      promise.future(&pool).then([] { return true; }).then([](bool) { return std::string("yay"); });
+    promise.setValue();
+    CHECK_EQUAL("yay", std::move(future).get());
   }
 
   ManualExecutor main;
@@ -166,8 +174,10 @@ int main()
                  return 1234;
                })
                .then([](int v) { return v + 1; });
+    CHECK(!f.isReady());
     promise.setError(std::invalid_argument("nope"));
-    CHECK_EQUAL(1235, f.get());
+    CHECK(f.isReady());
+    CHECK_EQUAL(1235, std::move(f).get());
   }
 
   {
@@ -218,7 +228,23 @@ int main()
       return future2;
     });
     promise.set([]() -> int { throw "102"; });
-    CHECK_EQUAL(103, future.get());
+    CHECK_EQUAL(103, std::move(future).get());
+  }
+
+  {
+    Promise<std::unique_ptr<int>> promise;
+    auto future = promise.future(&pool)
+                    .then([](std::unique_ptr<int> p) {
+                      ++*p;
+                      return p;
+                    })
+                    .then([](std::unique_ptr<int> p) {
+                      ++*p;
+                      return p;
+                    });
+    promise.setValue(std::make_unique<int>(1));
+    std::unique_ptr<int> i = std::move(future).get();
+    CHECK_EQUAL(3, *i);
   }
 
   return 0;

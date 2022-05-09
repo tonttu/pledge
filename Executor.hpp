@@ -4,6 +4,8 @@
 
 namespace Pledge {
 
+// Executor defines an execution context for tasks. In practise it manages
+// when and in which thread then/error callbacks are called.
 class Executor
 {
 public:

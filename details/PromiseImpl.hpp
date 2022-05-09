@@ -14,7 +14,7 @@ Promise<T>::Promise(Y&& t)
 template <typename T>
 Future<T> Promise<T>::future(Executor* executor)
 {
-  m_data->m_executor = executor;
+  m_data->executor = executor;
   return Future<T>(m_data);
 }
 
@@ -59,7 +59,7 @@ Promise<void>::Promise(void_type t)
 
 Future<> Promise<void>::future(Executor* executor)
 {
-  m_data->m_executor = executor;
+  m_data->executor = executor;
   return Future<>(m_data);
 }
 
