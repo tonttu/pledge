@@ -10,13 +10,13 @@ namespace Pledge {
 class ManualExecutor : public Executor
 {
 public:
-  void add(Func func) override
+  inline void add(Func func) override
   {
     std::lock_guard<std::mutex> g(m_queueMutex);
     m_queue.push_back(std::move(func));
   }
 
-  size_t run()
+  inline size_t run()
   {
     std::vector<Func> todo;
     {

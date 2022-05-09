@@ -13,7 +13,7 @@ namespace Pledge {
 class ThreadPoolExecutor : public Executor
 {
 public:
-  void add(Func func) override
+  inline void add(Func func) override
   {
     {
       std::lock_guard<std::mutex> g(m_queueMutex);
@@ -22,14 +22,14 @@ public:
     m_queueCond.notify_one();
   }
 
-  ThreadPoolExecutor(size_t threadCount)
+  inline ThreadPoolExecutor(size_t threadCount)
   {
     m_threads.reserve(threadCount);
     for (size_t i = 0; i < threadCount; ++i)
       m_threads.emplace_back(std::bind(&ThreadPoolExecutor::exec, this));
   }
 
-  ~ThreadPoolExecutor()
+  inline ~ThreadPoolExecutor()
   {
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
@@ -42,7 +42,7 @@ public:
   }
 
 private:
-  void exec()
+  inline void exec()
   {
     for (;;) {
       Func func;
