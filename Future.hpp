@@ -1,10 +1,6 @@
 #pragma once
 
-#include <cassert>
-#include <condition_variable>
 #include <memory>
-#include <mutex>
-#include <variant>
 
 #include "Executor.hpp"
 #include "details/FutureData.hpp"
@@ -24,8 +20,7 @@ public:
 
   Future<T>& via(Executor* executor);
 
-  // TODO: Is this a good name? Maybe get() instead?
-  T wait();
+  T get();
 
   template <typename F>
   auto error(F&& f) -> Future<T>;
@@ -49,7 +44,7 @@ public:
 
   Future(std::shared_ptr<FutureDataType<void>> data);
 
-  void wait() { Base::wait(); }
+  void get() { Base::get(); }
 
   Future<>& via(Executor* executor);
 };

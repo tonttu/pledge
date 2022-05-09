@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cassert>
+#include <mutex>
+#include <variant>
+
 #include "Traits.hpp"
 
 namespace Pledge {
@@ -83,7 +87,6 @@ public:
   };
 
   std::mutex m_mutex;
-  std::condition_variable m_cond;
   std::variant<std::monostate, T, std::exception_ptr> m_value;
   Executor* m_executor = nullptr;
   std::function<void()> m_callback;

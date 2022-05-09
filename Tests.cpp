@@ -78,7 +78,7 @@ int main()
   using namespace Pledge;
   {
     Promise<int> promise{ 42 };
-    CHECK_EQUAL(42, promise.future().wait());
+    CHECK_EQUAL(42, promise.future().get());
   }
   {
     Promise<int> promise{ 43 };
@@ -100,14 +100,14 @@ int main()
 
   {
     Promise<int> promise{ 46 };
-    promise.future(&pool).then([](int v) { CHECK_EQUAL(46, v); }).wait();
+    promise.future(&pool).then([](int v) { CHECK_EQUAL(46, v); }).get();
     CHECK_PREV(46);
   }
   {
     Promise<int> promise;
     auto future = promise.future(&pool).then([](int v) { CHECK_EQUAL(47, v); });
     promise.setValue(47);
-    future.wait();
+    future.get();
     CHECK_PREV(47);
   }
 
@@ -115,7 +115,7 @@ int main()
     Promise<> promise;
     auto future = promise.future(&pool).then([] { CHECK(true); });
     promise.setValue();
-    future.wait();
+    future.get();
     CHECK_PREV(true);
   }
 
@@ -167,7 +167,7 @@ int main()
                })
                .then([](int v) { return v + 1; });
     promise.setError(std::invalid_argument("nope"));
-    CHECK_EQUAL(1235, f.wait());
+    CHECK_EQUAL(1235, f.get());
   }
 
   {
@@ -205,7 +205,7 @@ int main()
                 promise2.setValue(v + 1);
                 return future2;
               })
-              .wait();
+              .get();
     CHECK_EQUAL(102, v);
   }
 
@@ -218,7 +218,7 @@ int main()
       return future2;
     });
     promise.set([]() -> int { throw "102"; });
-    CHECK_EQUAL(103, future.wait());
+    CHECK_EQUAL(103, future.get());
   }
 
   return 0;
