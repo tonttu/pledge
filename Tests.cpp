@@ -247,5 +247,9 @@ int main()
     CHECK_EQUAL(3, *i);
   }
 
+  {
+    via(&pool, [] {}).get();
+  }
+
   return 0;
 }

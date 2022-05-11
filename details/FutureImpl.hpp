@@ -130,10 +130,7 @@ inline void handleThen(std::shared_ptr<FutureData<From>>& from,
                        Func&& f)
 {
   if (from->executor) {
-    from->executor->add([from, to, f]() mutable {
-      // TODO: Shouldn't this use std::move instead?
-      handleThenDirect(from, to, std::forward<Func>(f));
-    });
+    from->executor->add([from, to, f]() mutable { handleThenDirect(from, to, std::move(f)); });
   } else {
     handleThenDirect(from, to, std::forward<Func>(f));
   }
@@ -143,10 +140,7 @@ template <typename E, typename D, typename Func>
 inline void handleError(D& from, D& to, Func&& f)
 {
   if (from->executor) {
-    from->executor->add([from, to, f]() mutable {
-      // TODO: Shouldn't this use std::move instead?
-      handleErrorDirect<E>(from, to, std::forward<Func>(f));
-    });
+    from->executor->add([from, to, f]() mutable { handleErrorDirect<E>(from, to, std::move(f)); });
   } else {
     handleErrorDirect<E>(from, to, std::forward<Func>(f));
   }
@@ -174,7 +168,6 @@ Future<T>::Future(Y&& t)
 template <typename T>
 Future<T>&& Future<T>::via(Executor* executor) &&
 {
-  // TODO: do we need to lock mutex here?
   m_data->executor = executor;
   return std::move(*this);
 }
@@ -279,7 +272,6 @@ Future<void>::Future(std::shared_ptr<FutureDataType<void>> data)
 
 Future<>&& Future<void>::via(Executor* executor) &&
 {
-  // TODO: do we need to lock mutex here?
   m_data->executor = executor;
   return std::move(*this);
 }

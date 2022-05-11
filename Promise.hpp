@@ -10,6 +10,12 @@ class Promise
 public:
   Promise();
 
+  Promise(const Promise&) = delete;
+  Promise& operator=(const Promise&) = delete;
+
+  Promise(Promise&&) = default;
+  Promise& operator=(Promise&&) = default;
+
   template <typename Y>
   Promise(Y&& t);
 
@@ -53,7 +59,7 @@ private:
 
 // Create a new future from the result of 'f' executed in the given executor.
 template <typename F>
-auto via(Executor* executor, F&& f) -> Future<typename Type<F>::Type>;
+auto via(Executor* executor, F&& f) -> FutureType<typename Type<F>::Ret>;
 
 }
 

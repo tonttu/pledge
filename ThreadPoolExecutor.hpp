@@ -22,7 +22,7 @@ public:
     m_queueCond.notify_one();
   }
 
-  inline ThreadPoolExecutor(size_t threadCount)
+  inline ThreadPoolExecutor(size_t threadCount = 8)
   {
     m_threads.reserve(threadCount);
     for (size_t i = 0; i < threadCount; ++i)

@@ -15,6 +15,13 @@ public:
 
   Future(std::shared_ptr<FutureDataType<T>> data);
 
+  Future() = delete;
+  Future(const Future&) = delete;
+  Future& operator=(const Future&) = delete;
+
+  Future(Future&&) = default;
+  Future& operator=(Future&&) = default;
+
   // Constructs a ready future.
   template <typename Y>
   Future(Y&& t);

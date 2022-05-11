@@ -80,9 +80,9 @@ void Promise<void>::setError(E&& e)
 }
 
 template <typename F>
-auto via(Executor* executor, F&& f) -> Future<typename Type<F>::Type>
+auto via(Executor* executor, F&& f) -> FutureType<typename Type<F>::Ret>
 {
-  return Promise<>().future(executor).then(std::forward<F>(f));
+  return Promise<>(void_type{}).future(executor).then(std::forward<F>(f));
 }
 
 }
